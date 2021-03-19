@@ -1,0 +1,285 @@
+% --------------------------------------------------------------------------------
+% Author -	@Group 23
+% --------------------------------------------------------------------------------
+
+% User role
+% --------------------------------------------------------------------------------
+
+role user (
+	A, B, C : agent,
+	H : hash_func,
+	S,E,D: symmetric_key,
+	SND, RCV : channel(dy)
+)
+
+played_by A 
+
+def=
+
+local
+	State : nat,	%  state of Transition
+	R : text,		
+	Rstar : text,	
+	ID : text, 		% randomly choosen user id 
+	RID : text
+	PW : text,		% user's password
+	BIO : text,
+	Sigma : text,
+	Tau : text,
+	IPB : text,
+	EID : text,
+	EIDstar : text,
+	LTK : text,
+	LTKstar : text,
+	DL : text,
+	DLstar : text,
+	SC : text,
+	Gen : hash_func,
+	Rep : hash_func,
+	TS  : text,
+	TScurrent : text,
+	XGwnU' : text,
+	F' : text,
+	D1 : text,
+	D3 : text,
+	SK : text
+
+init 
+	State := 0
+
+transition
+
+% user Registration
+0.	State = 0 /\ RCV(start) =|> 
+		State' := 1 /\ R' := new() /\ ID' := new() /\ RID' =  H(ID'.R') /\ SND({RID'}_S) /\ secret(PW', reg_1, {A})
+ 
+% receiving smard card from server with password
+2.	State = 2 /\ RCV({H(R'.RID').LTK'.F'.XGwnU'}_S) =|> 
+		State' := 3 
+		/\ PW' := new() 
+		/\ BIO' := new() 
+		/\ Sigma', Tau' := Gen(BIO') 
+		/\ IPB' := H(PW'.H(ID'.Sigma')) 
+		/\ Rstar' := xor(R',H(ID'.H(PW'.Sigma')))
+		/\ EIDstar' := xor(EID',H(ID'.R'.PW'.Sigma')) 
+		/\ LTKstar':= xor(LTK,H(R'.ID'.Sigma'.PW')) 
+		/\ DLstar' := xor(DL', H(PW'.R'.ID'.Sigma')) 
+		/\ EID' := EIDstar' 
+		/\ LTK' := LTKstar' 
+		/\ DL' := DLstar'
+
+
+% sending login request to server
+3.	State = 4 /\ RCV(start) =|>
+		State' := 5 
+		/\ Tau' := new() 
+		/\ Sigma' := Rep(BIO', Tau') 
+		/\ IPB' := H(PW'.H(ID',Sigma')) 
+		/\ R' := xor(Rstar', H(ID'.H(PW'.Sigma')) 
+		/\ EID' := xor(EIDstar,H(ID'.R'.PW'.Sigma') 
+		/\ LTK' := xor(LTKstar',H(R'.ID'.Sigma'.PW')) 
+		/\ DL' := xor(DLstar', H(PW'.R'.ID'.Sigma') 
+		/\ TS' := TScurrent' 
+		/\ EID' := E(ID'.TS') 
+		/\ SND({EID',TS'}_S) 
+		/\ witness(A,C,user_device_t1, T1')
+
+% user receiving message from smart device  
+6.	State = 6 /\ RCV({D1',D3',cert,TS'}_S) =|>
+		State' := 7 
+		/\ (EID', X', Dev') := D(D1') 
+		/\ EIDstar' := xor(EID', H(ID'.R'.PW'.Sigma')) 
+		/\ DLstar' := xor(DL', H(PW'.R'.ID'.Sigma'))
+
+
+
+		
+end role
+
+
+%  code for Device role
+
+role device (
+	A, B, C : agent,
+	H : hash_func,
+	S, E, D: symmetric_key,
+	SND, RCV : channel(dy)
+)
+
+played_by C 
+
+def=
+
+local
+	State : nat,	
+	R : text,		% 
+	SenID : text, 	 
+	MP : text,		% 
+	MN: text,		% 
+	RMP: text,		%
+	ID: text,
+	Aj: text,
+	PWD: text,
+	TS : text.
+	TScurrent : text,
+	D1: text,
+	D2: text,
+	D3: text,
+	SK : text
+
+
+init 
+	State := 0
+
+transition
+
+% message sending to user
+5.	State = 0 /\ RCV(start) =|> 
+		State' := 1 
+		/\ TS' := TScurrent' 
+		/\ y := new() 
+		/\ D3 := E(y, TS') 
+		/\ SK' := H(auth.y) 
+		/\ cert := H(SK'.TS'.D1') 
+		/\ SND({D1',D3',cert,TS'}_S)
+
+		
+end role
+
+
+% server or (gateway)
+
+role server (
+A, B, C : agent,
+H : hash_func,
+S: symmetric_key,
+SND, RCV : channel(dy)
+)
+
+
+
+played_by B
+
+
+
+def=
+
+
+
+local
+state : nat
+TS : text, % to see at the end
+X : text, %
+LTK: text, %
+LTS : text % 
+F: text, %
+RID: text,
+R: text, %
+XGwn: text, %
+SenID : text, % 
+MP :text 
+T1 = text 
+R3 = text
+X2 = text
+E2 = text 
+MP2 = text 
+T2 = text
+MP = text 
+XGwnU = text 
+F2 = text 
+XGwnS = text
+
+
+
+init
+State := 1
+
+
+
+transition
+
+
+% Server receives RID and send smart card to user
+1. State = 0 /\ RCV(H(R'.RID').H(R'.PW')) =|>
+State' := 2 /\ XGwn' := new() /\ XGwnU' := new() /\ F' := H(H(R'.RID').XGwn')/\ X' := H(H(R'.PWD').XGwnU') /\ LTK' := xor(F',X')/\SND({H(R'.RID').LTK'.F'.XGwnU'}_S)
+
+
+
+% login part of server 
+
+% sensor request to server to authenticate that the data received is from assumed user 
+
+4.	State = 3 /\ RCV({SenID'.xor(H(S.R'.SenID').xor(R',S)).xor(R',S).T1'}_S) =|>
+		State' := 5  
+         /\ MP' := xor(xor(H(S.R.SenID').xor(R,S)),xor(R,S)) 
+         /\ R3' := xor(xor(R,S),S) 
+         /\ MP2' := H(S.R3.SenID') 
+         /\ F2' := H(SenID'.XGwn) 
+         /\ X2' := H(MP2.S) 
+         /\ E2' := xor(F2,X2) 
+         /\ SND({E2.F2.T2}_S) 
+         /\ request(B,A, sensor_server_r, R)
+ 	   		
+
+						
+end role	
+
+% session
+
+role session (
+	H : hash_func,
+	A, B, C : agent,
+	S : symmetric_key
+)
+
+def=
+
+local 
+	SAB, RAB, SBA, RBA, SBC, RBC : channel(dy)
+
+composition
+	user(A, B, C, H, S, SAB, RAB) /\ server(A, B, C, H, S, SBA, RBA) /\ device (A, B, C ,H ,S, SBC, RBC)
+
+end role
+
+
+
+
+
+
+
+
+
+% environment
+role environment()
+
+def=
+
+const 
+	reg_1,
+	
+	
+	user_device_t1,
+	
+	
+	a, b, c : agent,
+	h : hash_func,
+	sab, sai, sbi : symmetric_key
+	
+intruder_knowledge = {a, b, c, h}
+
+composition 
+% session()
+
+	 
+end role
+
+
+% goal
+
+goal
+	secrecy_of reg_1, 
+	authentication_on, user_device_t1
+end goal
+
+environment()
